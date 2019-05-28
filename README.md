@@ -1,2 +1,2 @@
 ## Hacker News Clone
-Built usings React, Apollo, GraphQL
+Built using React, Apollo, GraphQL
