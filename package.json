@@ -4,11 +4,13 @@
   "private": true,
   "dependencies": {
     "apollo-link-context": "^1.0.17",
+    "apollo-link-ws": "^1.0.17",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-router": "^5.0.1",
     "react-router-dom": "^5.0.1",
-    "react-scripts": "3.0.1"
+    "react-scripts": "3.0.1",
+    "subscriptions-transport-ws": "^0.9.16"
   },
   "scripts": {
     "start": "react-scripts start",
