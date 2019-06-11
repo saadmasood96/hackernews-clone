@@ -10,9 +10,7 @@ import { createHttpLink } from 'apollo-link-http';
 import { InMemoryCache } from 'apollo-cache-inmemory';
 
 import { BrowserRouter } from 'react-router-dom';
-import { setContext } from '../node_modules/apollo-link-context';
-// following middleware invoked every time ApolloClient sends req to server
-import { setContext } from 'apollo-link-context';
+import { setContext } from '../node_modules/apollo-link-context'; // middleware invoked every time ApolloClient sends req to server
 import { AUTH_TOKEN } from './constants';
 
 const httpLink = createHttpLink({
