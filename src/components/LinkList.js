@@ -1,11 +1,12 @@
-import React, { Component } from 'react';
+import React, { Component, Fragment } from 'react';
 import Link from './Link';
 import { Query } from 'react-apollo';
 import gql from 'graphql-tag';
+import { LINKS_PER_PAGE } from '../constants'
 
 export const FEED_QUERY = gql`
-  {
-    feed {
+  query FeedQuery($first: Int, $skip: Int, $orderBy: LinkOrderByInput) {
+    feed(first: $first, skip: $skip, orderBy: $orderBy) {
       links {
         id
         createdAt
@@ -13,15 +14,16 @@ export const FEED_QUERY = gql`
         description
         postedBy {
           id
-          name
+          name 
         }
         votes {
           id
           user {
-            id
+            id 
           }
         }
       }
+      count
     }
   }
 `;
@@ -77,8 +79,19 @@ const NEW_VOTES_SUBSCRIPTION = gql`
 class LinkList extends Component { 
 
   _updateCacheAfterVote = (store, createVote, linkId) => {
-    // read curr state of cached data 
-    const data = store.readQuery({query: FEED_QUERY});
+    const isNewPage = this.props.location.pathname.includes("new");
+    const page = parseInt(this.props.match.params.page, 10);
+
+    // compute vars depending on whether user is currently on /top or /new
+    const skip = isNewPage ? (page-1) * LINKS_PER_PAGE : 0;
+    const first = isNewPage ? LINKS_PER_PAGE : 100;
+    const orderBy = isNewPage ? "createdAt_DESC" : null;
+    
+    const data = store.readQuery({
+      query: FEED_QUERY,
+      variables: { first, skip, orderBy }
+    });
+
     // retrieve link user just voted for from ^
     const votedLink = data.feed.inks.find(link => link.id ===linkId);
     votedLink.votes = createVote.link.votes;
@@ -120,9 +133,51 @@ class LinkList extends Component {
     })
   }
 
+  // pass vars to query based on curr page 
+  _getQueryVariables = () => {
+    const isNewPage = this.props.location.pathname.includes("new");
+    const page = parseInt(this.props.match.params.page, 10);
+
+    const skip = isNewPage ? (page-1) * LINKS_PER_PAGE : 0;
+    const first = isNewPage ? LINKS_PER_PAGE : 100;
+    const orderBy = isNewPage ? "createdAt_DESC": null;
+
+    return {first, skip, orderBy};
+  }
+
+  _getLinksToRender = (data) => {
+    const isNewPage = this.props.location.pathname.includes("new");
+    if (isNewPage) {
+      return data.feed.links;
+    }
+
+    const rankedLinks = data.feed.links.slice();
+    rankedLinks.sort((l1,l2) => l2.votes.length = l1.votes.length);
+    return rankedLinks;
+  }
+
+  _nextPage = (data) => {
+    // retrieve curr page from url
+    const page = parseInt(this.props.match.params.page, 10);
+    // sanity check for navigation
+    if (page <= data.feed.count / LINKS_PER_PAGE) {
+      // calculate next page
+      const nextPage = page+1;
+      this.props.history.push(`/new/${nextPage}`);
+    }
+  }
+
+  _previousPage = () => {
+    const page = parseInt(this.props.match.params.page, 10);
+    if (page > 1) {
+      const previousPage = page - 1;
+      this.props.history.push(`${previousPage}`);
+    }
+  }
+
   render() {
       return (
-          <Query query={FEED_QUERY}>
+          <Query query={FEED_QUERY} variables={this._getQueryVariables()}>
               {({ loading, error, data, subscribeToMore }) => {
                   if (loading) return <div> ... Fetching ...</div>
                   if (error) return <div>Error!</div>
@@ -131,19 +186,35 @@ class LinkList extends Component {
                   this._subscribeToNewLinks(subscribeToMore)
                   this._subscribeToNewVotes(subscribeToMore)
 
-                  const linksToRender = data.feed.links
+                  const linksToRender = this._getLinksToRender(data);
+                  const isNewPage = this.props.location.pathname.includes("new");
+                  const pageIndex = this.props.match.params.page 
+                    ? (this.props.match.params.page - 1) * LINKS_PER_PAGE
+                    : 0
+                  ;
               
                   return (
-                    <div>
-                      {linksToRender.map((link, index) => (
-                        <Link 
-                          key={link.id} 
-                          link={link} 
-                          index={index} 
-                          updateStoreAfterVote={this._updateCacheAfterVote}
-                        />
-                      ))}
-                    </div>
+                   <Fragment>
+                     {linksToRender.map((link, index) => (
+                       <Link 
+                        key={link.id}
+                        link={link}
+                        index={index + pageIndex} 
+                        updateStoreAfterVote={this._updateCacheAfterVote}
+                       />
+                     ))}
+
+                     {isNewPage && (
+                       <div className="flex ml4 mv3 gray">
+                         <div className="pointer mr2" onClick={this._previousPage}>
+                           Previous
+                         </div>
+                         <div className="pointer" onClick={() => this._nextPage(data)}>
+                          Next
+                         </div>
+                       </div>
+                     )}
+                   </Fragment> 
                   );
               }}
           </Query>
